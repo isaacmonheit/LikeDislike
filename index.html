@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Like/Skip Counter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #000;
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .main-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: pan-y;
+            overflow: hidden;
+        }
+
+        #webcamVideo {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+            display: none;
+        }
+
+        #webcamIframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            z-index: 0;
+            display: none;
+        }
+
+        .webcam-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 1;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .content-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            z-index: 1;
+            opacity: 0;
+        }
+
+        .heart-animation {
+            position: absolute;
+            font-size: 100px;
+            color: #ff1744;
+            animation: heartPop 1s ease-out forwards;
+            pointer-events: none;
+            z-index: 100;
+            filter: drop-shadow(0 0 10px rgba(255, 23, 68, 0.6));
+        }
+
+        @keyframes heartPop {
+            0% {
+                transform: scale(0) rotate(-30deg);
+                opacity: 0;
+            }
+            15% {
+                transform: scale(1.2) rotate(-15deg);
+                opacity: 1;
+            }
+            30% {
+                transform: scale(0.9) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1) rotate(0deg) translateY(-100px);
+                opacity: 0;
+            }
+        }
+
+        .skip-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+            color: #ff5722;
+            animation: skipPulse 0.5s ease-out forwards;
+            pointer-events: none;
+            z-index: 100;
+            text-shadow: 0 0 20px rgba(255, 87, 34, 0.8);
+        }
+
+        @keyframes skipPulse {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1) translateY(-50px);
+                opacity: 0;
+            }
+        }
+
+        .ratio-container {
+            position: absolute;
+            bottom: 140px;
+            left: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+
+        .ratio-label {
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: 600;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+        }
+
+        .ratio-bar {
+            width: 100%;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .ratio-like {
+            background: linear-gradient(90deg, #4CAF50, #2E7D32);
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1em;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .ratio-skip {
+            background: linear-gradient(90deg, #FF5722, #D32F2F);
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1em;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .status-message {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 20;
+            transition: all 0.3s ease;
+        }
+
+        .status-message.connected {
+            background: rgba(76, 175, 80, 0.2);
+            border-color: rgba(76, 175, 80, 0.3);
+        }
+
+        .status-message.error {
+            background: rgba(244, 67, 54, 0.2);
+            border-color: rgba(244, 67, 54, 0.3);
+        }
+
+        .double-tap-hint {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1em;
+            opacity: 0.7;
+            text-align: center;
+            animation: pulse 2s infinite;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        .content-skipped-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #ff0000;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            animation: flashRed 0.5s ease-in-out;
+        }
+
+        .content-skipped-overlay.active {
+            display: flex;
+        }
+
+        @keyframes flashRed {
+            0% { opacity: 0; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .content-skipped-text {
+            font-size: 4em;
+            font-weight: bold;
+            color: white;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+            animation: shake 0.5s ease-in-out infinite;
+            margin-bottom: 30px;
+            text-align: center;
+            width: 100%;
+            line-height: 1.1;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px) rotate(-2deg); }
+            75% { transform: translateX(10px) rotate(2deg); }
+        }
+
+        .countdown-timer {
+            font-size: 3em;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 20px 40px;
+            border-radius: 20px;
+            border: 3px solid white;
+        }
+
+        @media (max-width: 768px) {
+            .content-skipped-text {
+                font-size: 3em;
+                padding: 0 20px;
+            }
+            
+            .countdown-timer {
+                font-size: 2.5em;
+                padding: 15px 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js';
+        import { getDatabase, ref, set, get, onValue, runTransaction } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js';
+
+        // Your Firebase configuration
+        // IMPORTANT: Replace this with your own Firebase config
+      const firebaseConfig = {
+        apiKey: "AIzaSyCtqtPF4YspCmrmsKkIx5_-2ew_jM4peTg",
+        authDomain: "likedislike-cb015.firebaseapp.com",
+        databaseURL: "https://likedislike-cb015-default-rtdb.firebaseio.com",
+        projectId: "likedislike-cb015",
+        storageBucket: "likedislike-cb015.firebasestorage.app",
+        messagingSenderId: "163526677794",
+        appId: "1:163526677794:web:243cb3aa6dbc2154c7c17b"
+        };
+
+        // Initialize Firebase
+        let app, database;
+        let isConnected = false;
+
+        // Touch and gesture handling
+        let touchStartY = 0;
+        let touchStartTime = 0;
+        let lastTap = 0;
+        let lastSwipe = 0;
+        const doubleTapDelay = 300; // milliseconds
+        const swipeThreshold = 50; // pixels
+        const swipeTimeLimit = 500; // milliseconds
+        const swipePreventTapDelay = 400; // reduced to 400ms after swipe
+        let isContentSkipped = false;
+        let countdownInterval = null;
+        let recentSwipes = 0; // track rapid swipes
+
+        // Webcam stream URL - replace with your stream URL
+        const WEBCAM_STREAM_URL = ""; // Add your YouTube Live embed URL or other stream URL
+
+        try {
+            app = initializeApp(firebaseConfig);
+            database = getDatabase(app);
+            
+            // Initialize Firebase mode directly since config is set
+            initializeFirebaseMode();
+        } catch (error) {
+            console.error("Firebase initialization error:", error);
+            updateStatus("❌ Firebase connection failed. Using local mode.", "error");
+            initializeLocalMode();
+        }
+
+        function updateStatus(message, type = "") {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type}`;
+            
+            // Hide status after 3 seconds if connected
+            if (type === 'connected') {
+                setTimeout(() => {
+                    statusEl.style.opacity = '0';
+                    setTimeout(() => {
+                        statusEl.style.display = 'none';
+                    }, 300);
+                }, 3000);
+            }
+        }
+
+        function initializeFirebaseMode() {
+            updateStatus("🔄 Connecting To The Hivemind... Be Patient");
+            
+            const votesRef = ref(database, 'votes');
+            
+            onValue(votesRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    updateDisplay(data.likes || 0, data.skips || 0);
+                    if (!isConnected) {
+                        updateStatus("✅ You Are Now Synced With The Hivemind", "connected");
+                        isConnected = true;
+                    }
+                } else {
+                    set(votesRef, { likes: 0, skips: 0 });
+                    updateDisplay(0, 0);
+                }
+            }, (error) => {
+                console.error("Firebase read error:", error);
+                updateStatus("❌ Connection error. Using local mode.", "error");
+                initializeLocalMode();
+            });
+        }
+
+        function initializeLocalMode() {
+            updateStatus("⚠️ Local mode (no global sync)", "");
+            
+            let likes = parseInt(localStorage.getItem('likes') || '0');
+            let skips = parseInt(localStorage.getItem('skips') || '0');
+            
+            updateDisplay(likes, skips);
+        }
+
+        function vote(type) {
+            if (isContentSkipped) {
+                console.log("Voting blocked during content skip countdown");
+                return; // Block voting during countdown
+            }
+            
+            console.log(`Vote: ${type}`); // Debug log
+            
+            if (database && isConnected) {
+                voteFirebase(type);
+            } else {
+                voteLocal(type);
+            }
+        }
+
+        function voteFirebase(type) {
+            const votesRef = ref(database, 'votes');
+            
+            runTransaction(votesRef, (currentData) => {
+                if (currentData === null) {
+                    return { likes: type === 'like' ? 1 : 0, skips: type === 'skip' ? 1 : 0 };
+                }
+                
+                return {
+                    likes: currentData.likes + (type === 'like' ? 1 : 0),
+                    skips: currentData.skips + (type === 'skip' ? 1 : 0)
+                };
+            }).catch((error) => {
+                console.error("Transaction failed:", error);
+            });
+        }
+
+        function voteLocal(type) {
+            let likes = parseInt(localStorage.getItem('likes') || '0');
+            let skips = parseInt(localStorage.getItem('skips') || '0');
+            
+            if (type === 'like') {
+                likes++;
+                localStorage.setItem('likes', likes);
+            } else {
+                skips++;
+                localStorage.setItem('skips', skips);
+            }
+            
+            updateDisplay(likes, skips);
+        }
+
+        function updateDisplay(likes, skips) {
+            console.log(`Updating display: ${likes} likes, ${skips} skips`); // Debug log
+            
+            const total = likes + skips;
+            
+            let likePercent, skipPercent;
+            if (total === 0) {
+                likePercent = 50;
+                skipPercent = 50;
+            } else {
+                likePercent = Math.round((likes / total) * 100);
+                skipPercent = 100 - likePercent;
+            }
+            
+            console.log(`Percentages: ${likePercent}% likes, ${skipPercent}% skips`); // Debug log
+            
+            document.getElementById('ratioLike').style.width = likePercent + '%';
+            document.getElementById('ratioSkip').style.width = skipPercent + '%';
+            
+            document.getElementById('likePercentage').textContent = likePercent + '%';
+            document.getElementById('skipPercentage').textContent = skipPercent + '%';
+            
+            // Hide percentage labels if too small
+            document.getElementById('likePercentage').style.display = likePercent < 20 ? 'none' : 'block';
+            document.getElementById('skipPercentage').style.display = skipPercent < 20 ? 'none' : 'block';
+            
+            // Check if skip ratio is over 70%
+            if (skipPercent >= 70 && total > 0 && !isContentSkipped) {
+                triggerContentSkipped();
+            }
+        }
+
+        function triggerContentSkipped() {
+            isContentSkipped = true;
+            
+            // Play alarm sound
+            playAlarmSound();
+            
+            // Show red screen overlay
+            const overlay = document.getElementById('contentSkippedOverlay');
+            overlay.classList.add('active');
+            
+            // Start 10 second countdown
+            let countdown = 10;
+            const countdownEl = document.getElementById('countdownTimer');
+            countdownEl.textContent = countdown;
+            
+            countdownInterval = setInterval(() => {
+                countdown--;
+                countdownEl.textContent = countdown;
+                
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                    resetAfterSkip();
+                }
+            }, 1000);
+        }
+
+        function resetAfterSkip() {
+            // Hide overlay
+            const overlay = document.getElementById('contentSkippedOverlay');
+            overlay.classList.remove('active');
+            
+            // Reset votes to 0
+            if (database && isConnected) {
+                const votesRef = ref(database, 'votes');
+                set(votesRef, { likes: 0, skips: 0 });
+            } else {
+                localStorage.setItem('likes', '0');
+                localStorage.setItem('skips', '0');
+                updateDisplay(0, 0);
+            }
+            
+            isContentSkipped = false;
+        }
+
+        function playAlarmSound() {
+            // Create and play a more annoying alarm sound using Web Audio API
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create multiple oscillators for a more annoying sound
+                const createOscillator = (freq, startTime, duration) => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(freq, startTime);
+                    oscillator.type = 'sawtooth'; // More harsh sound
+                    
+                    gainNode.gain.setValueAtTime(0, startTime);
+                    gainNode.gain.linearRampToValueAtTime(0.6, startTime + 0.01);
+                    gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+                    
+                    oscillator.start(startTime);
+                    oscillator.stop(startTime + duration);
+                };
+                
+                const now = audioContext.currentTime;
+                
+                // Create a pattern of annoying beeps
+                for (let i = 0; i < 8; i++) {
+                    const time = now + (i * 0.15);
+                    createOscillator(1000 + (i % 2) * 400, time, 0.1); // Alternating high/low
+                    createOscillator(600 - (i % 2) * 200, time + 0.05, 0.1); // Counter melody
+                }
+                
+                // Add a continuous warbling sound
+                const warbleOsc = audioContext.createOscillator();
+                const warbleGain = audioContext.createGain();
+                const lfo = audioContext.createOscillator(); // Low frequency oscillator for warble
+                const lfoGain = audioContext.createGain();
+                
+                lfo.connect(lfoGain);
+                lfoGain.connect(warbleOsc.frequency);
+                warbleOsc.connect(warbleGain);
+                warbleGain.connect(audioContext.destination);
+                
+                warbleOsc.frequency.setValueAtTime(800, now);
+                warbleOsc.type = 'square';
+                lfo.frequency.setValueAtTime(6, now); // 6Hz warble
+                lfoGain.gain.setValueAtTime(200, now);
+                
+                warbleGain.gain.setValueAtTime(0.4, now);
+                warbleGain.gain.exponentialRampToValueAtTime(0.01, now + 2);
+                
+                lfo.start(now);
+                warbleOsc.start(now);
+                lfo.stop(now + 2);
+                warbleOsc.stop(now + 2);
+                
+            } catch (error) {
+                console.log("Audio not supported");
+            }
+        }
+
+        function initializeWebcam() {
+            // For the sample stream, let's use iframe embed
+            const youtubeVideoId = "jfKfPfyJRdk"; // Extracted from your URL
+            const embedUrl = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${youtubeVideoId}`;
+            
+            const iframe = document.getElementById('webcamIframe');
+            iframe.src = embedUrl;
+            iframe.style.display = 'block';
+            
+            iframe.onerror = function() {
+                console.log("YouTube embed failed, using gradient background");
+                iframe.style.display = 'none';
+            };
+            
+            // Hide the gradient background since we have video
+            document.querySelector('.main-container').style.background = 'none';
+        }
+
+        function resetVotes() {
+            console.log("Manually resetting votes to 0/0");
+            if (database && isConnected) {
+                const votesRef = ref(database, 'votes');
+                set(votesRef, { likes: 0, skips: 0 });
+            } else {
+                localStorage.setItem('likes', '0');
+                localStorage.setItem('skips', '0');
+                updateDisplay(0, 0);
+            }
+        }
+
+        function createHeartAnimation(x, y) {
+            const heart = document.createElement('div');
+            heart.className = 'heart-animation';
+            heart.innerHTML = '❤️';
+            heart.style.left = x + 'px';
+            heart.style.top = y + 'px';
+            
+            document.body.appendChild(heart);
+            
+            setTimeout(() => {
+                document.body.removeChild(heart);
+            }, 1000);
+        }
+
+        function createSkipIndicator() {
+            const skip = document.createElement('div');
+            skip.className = 'skip-indicator';
+            skip.innerHTML = '⏭️';
+            
+            document.body.appendChild(skip);
+            
+            setTimeout(() => {
+                document.body.removeChild(skip);
+            }, 500);
+        }
+
+        // Touch event listeners
+        document.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            touchStartY = e.touches[0].clientY;
+            touchStartTime = Date.now();
+            
+            // Handle double tap - but only if we haven't swiped recently
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            const timeSinceSwipe = currentTime - lastSwipe;
+            
+            // More aggressive prevention: block taps if recent swipes or too soon after swipe
+            if (tapLength < doubleTapDelay && tapLength > 0 && 
+                timeSinceSwipe > swipePreventTapDelay && 
+                recentSwipes < 2) { // Don't allow likes if rapid swiping
+                
+                // Double tap detected - LIKE!
+                console.log("Double tap detected - LIKE!"); // Debug log
+                const touch = e.touches[0];
+                createHeartAnimation(touch.clientX - 50, touch.clientY - 50);
+                vote('like');
+            } else if (timeSinceSwipe <= swipePreventTapDelay) {
+                console.log("Double tap blocked - recent swipe detected");
+            }
+            
+            lastTap = currentTime;
+        }, { passive: false });
+
+        document.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            
+            const touchEndY = e.changedTouches[0].clientY;
+            const touchEndTime = Date.now();
+            const deltaY = touchStartY - touchEndY;
+            const deltaTime = touchEndTime - touchStartTime;
+            
+            // Check for upward swipe (skip)
+            if (deltaY > swipeThreshold && deltaTime < swipeTimeLimit) {
+                console.log("Swipe up detected - SKIP!"); // Debug log
+                createSkipIndicator();
+                vote('skip');
+                
+                // Record swipe and track rapid swiping
+                lastSwipe = Date.now();
+                recentSwipes++;
+                
+                // Reset recent swipes counter after 2 seconds
+                setTimeout(() => {
+                    recentSwipes = Math.max(0, recentSwipes - 1);
+                }, 2000);
+            }
+        }, { passive: false });
+
+        // Prevent default touch behaviors
+        document.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+
+        // Initialize webcam when page loads
+        window.addEventListener('load', function() {
+            initializeWebcam();
+        });
+
+        // Add keyboard shortcut to reset votes (for debugging)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'r' && e.ctrlKey) {
+                e.preventDefault();
+                resetVotes();
+                console.log("Votes reset via Ctrl+R");
+            }
+            // Alternative shortcut - just press 'R' key
+            if (e.key === 'r' || e.key === 'R') {
+                resetVotes();
+                console.log("Votes reset via R key");
+            }
+        });
+    </script>
+
+    <div class="status-message" id="statusMessage">
+        🔄 Connecting To The Hivemind... Be Patient
+    </div>
+
+    <div class="main-container">
+        <iframe id="webcamIframe" allowfullscreen></iframe>
+        <video id="webcamVideo" autoplay muted loop></video>
+        <div class="webcam-overlay"></div>
+        
+        <div class="content-area">
+            💫
+        </div>
+        
+        <div class="double-tap-hint" style="display: none;">
+            Double tap to like • Swipe up to skip
+        </div>
+        
+        <div class="ratio-container">
+            <div class="ratio-label">Like/Skip Ratio</div>
+            <div class="ratio-bar">
+                <div class="ratio-like" id="ratioLike" style="width: 50%">
+                    <span id="likePercentage">50%</span>
+                </div>
+                <div class="ratio-skip" id="ratioSkip" style="width: 50%">
+                    <span id="skipPercentage">50%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Skipped Overlay -->
+    <div class="content-skipped-overlay" id="contentSkippedOverlay">
+        <div class="content-skipped-text">CONTENT SKIPPED</div>
+        <div class="countdown-timer" id="countdownTimer">10</div>
+    </div>
+</body>
+</html>
