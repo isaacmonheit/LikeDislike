@@ -199,6 +199,11 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
 
+        .count-display {
+            opacity: 0.8;
+            margin-left: 5px;
+        }
+
         .status-message {
             position: absolute;
             top: 20px;
@@ -298,6 +303,26 @@
         }
 
         @media (max-width: 768px) {
+            #webcamIframe {
+                position: fixed !important;
+                top: 50% !important;
+                left: 50% !important;
+                width: 177.78vh !important; /* 16:9 aspect ratio to fill height */
+                height: 100vh !important;
+                transform: translate(-50%, -50%) !important;
+                z-index: -1 !important;
+                min-width: 100vw !important;
+            }
+            
+            .counter-item {
+                font-size: 1.1em;
+            }
+            
+            .counter-number {
+                padding: 4px 10px;
+                font-size: 0.9em;
+            }
+            
             .content-skipped-text {
                 font-size: 3em;
                 padding: 0 20px;
@@ -478,6 +503,10 @@
             document.getElementById('likePercentage').textContent = likePercent + '%';
             document.getElementById('skipPercentage').textContent = skipPercent + '%';
             
+            // Update counters in parentheses
+            document.getElementById('likeCount').textContent = '(' + likes + ')';
+            document.getElementById('skipCount').textContent = '(' + skips + ')';
+            
             // Hide percentage labels if too small
             document.getElementById('likePercentage').style.display = likePercent < 20 ? 'none' : 'block';
             document.getElementById('skipPercentage').style.display = skipPercent < 20 ? 'none' : 'block';
@@ -596,7 +625,7 @@
 
         function initializeWebcam() {
             // For the sample stream, let's use iframe embed
-            const youtubeVideoId = "mWOJYckRhmM"; // Extracted from your URL
+            const youtubeVideoId = "aiw9YbVdR4c"; // Extracted from your URL
             const embedUrl = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${youtubeVideoId}`;
             
             const iframe = document.getElementById('webcamIframe');
@@ -749,10 +778,10 @@
             <div class="ratio-label">Like/Skip Ratio</div>
             <div class="ratio-bar">
                 <div class="ratio-like" id="ratioLike" style="width: 50%">
-                    <span id="likePercentage">50%</span>
+                    <span id="likePercentage">50%</span><span class="count-display" id="likeCount">(0)</span>
                 </div>
                 <div class="ratio-skip" id="ratioSkip" style="width: 50%">
-                    <span id="skipPercentage">50%</span>
+                    <span id="skipPercentage">50%</span><span class="count-display" id="skipCount">(0)</span>
                 </div>
             </div>
         </div>
